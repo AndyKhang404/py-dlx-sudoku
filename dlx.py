@@ -14,7 +14,7 @@ class DLX_node:
 		self.bottom : Union[None,DLX_node] = self
 
 class DLX():
-	def __init__(self,board: Union[str,None] = None) -> None:
+	def __init__(self) -> None:
 		self.head: DLX_node = DLX_node()
 		self.head.name = 'head'
 		curr: DLX_node = self.head
@@ -134,27 +134,6 @@ class DLX():
 					s2.bottom.size += 1
 					s3.bottom.size += 1
 					s4.bottom.size += 1
-		
-		# Parse board
-		self.board = []
-		if board is not None:
-			if len(board) != 81:
-				raise Exception('Invalid board!')
-			board_arr = [(ord(i)-ord('1')) if (ord('1') <= ord(i) <= ord('9')) else -1 for i in board]
-			self.board = board_arr
-			for i in range(9):
-				for j in range(9):
-					if board_arr[i*9+j] == -1: continue
-					curr = self.column_lookup[f's{i*9 + j}'].bottom
-					while not curr.is_column and not curr.name == f'r{i}c{j}#{board_arr[i*9+j]}':
-						curr = curr.bottom
-					if curr.name == f'r{i}c{j}#{board_arr[i*9+j]}':
-						temp = curr
-						curr = curr.next
-						while curr is not temp:
-							self.cover(self.column_lookup[curr.col])
-							curr = curr.next
-
 	
 	def cover(self, c: DLX_node) -> None:
 		if not c.is_column:
@@ -188,38 +167,73 @@ class DLX():
 		c.prev.next = c
 		c.next.prev = c
 
-	def search(self,limit: int) -> Iterator[Union[str,None]]:
-		if limit == 0: # Limit how many solutions do we want
-			yield None
-			# "".join([chr(i+ord('1')) if 1 <= i <= 9 else ' ' for i in self.board])
-		curr = self.head.next
-		if curr is self.head: # We've found a solution
-			limit -= 1
-			yield "".join([chr(i+ord('1')) if 1 <= i <= 9 else ' ' for i in self.board])
+class SudokuSolver:
+	def __init__(self) -> None:
+		self._solutions: list[str] = []
+		self._DLX: Union[DLX,None] = None
+		self._board: list[int] = []
+	
+	def _parse_board(self, board: str):
+		# Parse board
+		self._DLX = DLX()
+		if board is not None:
+			if len(board) != 81:
+				raise Exception('Invalid board!')
+			self._board = [(ord(i)-ord('1')) if (ord('1') <= ord(i) <= ord('9')) else -1 for i in board]
+			for i in range(9):
+				for j in range(9):
+					if self._board[i*9+j] == -1: continue
+					curr = self._DLX.column_lookup[f's{i*9 + j}'].bottom
+					while not curr.is_column and not curr.name == f'r{i}c{j}#{self._board[i*9+j]}':
+						curr = curr.bottom
+					if curr.name == f'r{i}c{j}#{self._board[i*9+j]}':
+						temp = curr
+						curr = curr.next
+						while curr is not temp:
+							self._DLX.cover(self._DLX.column_lookup[curr.col])
+							curr = curr.next
+						self._DLX.cover(self._DLX.column_lookup[temp.col])
+	
+	def solve(self, board: str, limit: int) -> list[str]:
+		self._parse_board(board)
+		self._limit = limit
+		self._search()
+		return self._solutions
+
+	def _search(self):
+		curr = self._DLX.head.next
+		if curr is self._DLX.head: # We've found a solution
+			self._solutions.append("".join([chr(i+ord('1')) if 0 <= i <= 8 else '.' for i in self._board]))
+			if len(self._solutions) >= self._limit: # Limit how many solutions do we want
+				return
 		minsize = 100
 		mincol = curr
-		while curr is not self.head:
+		while curr is not self._DLX.head:
 			if curr.size < minsize:
 				minsize = min(curr.size, minsize)
 				mincol = curr
 			curr = curr.next
+		# print(mincol.next.name, mincol.prev.name)
+		# print(mincol.name,minsize)
+		# return
 		if minsize == 0: # This column have nothing to cover => contradiction
-			yield None
-		self.cover(mincol)
-		r = curr.bottom
-		while r is not curr:
-			# o = r
+			return
+		self._DLX.cover(mincol)
+		r = mincol.bottom
+		while r is not mincol:
 			j = r.next
 			while j is not r:
-				self.cover(self.column_lookup[j.col])
+				self._DLX.cover(self._DLX.column_lookup[j.col])
 				j = j.next
 			_,u,_,v,_,w = [ord(i)-ord('0') for i in r.name]
-			self.board[u*9+v] = w
-			yield from self.search(limit)
+			self._board[u*9+v] = w
+			self._search()
+			if len(self._solutions) >= self._limit:
+				return
 			j = r.prev
 			while j is not r:
-				self.uncover(self.column_lookup[j.col])
+				self._DLX.uncover(self._DLX.column_lookup[j.col])
 				j = j.prev
-			self.board[u*9+v] = -1
+			self._board[u*9+v] = -1
 			r = r.bottom
-		self.uncover(mincol)
+		self._DLX.uncover(mincol)
