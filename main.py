@@ -5,6 +5,11 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.messagebox
 
+try:
+	import pyperclip
+except ImportError:
+	pass
+
 class SudokuGUI:
 	def __init__(self, solver: SudokuSolver) -> None:
 		self._root = tk.Tk()
@@ -41,6 +46,8 @@ class SudokuGUI:
 		self._import_frame = ttk.Frame(self._frame)
 		self._import_frame.pack()
 		self._import_entry = ttk.Entry(self._import_frame, width=85)
+		self._import_entry.bind("<Return>",lambda _: self._import_board())
+		self._import_entry.bind("<FocusIn>",lambda _: self._import_entry.selection_range(0,tk.END))
 		self._import_label = ttk.Label(self._import_frame,text="Input a 81-character string representing the board:")
 		self._import_label.pack(side=tk.TOP)
 		self._import_entry.pack(side=tk.LEFT)
@@ -104,9 +111,12 @@ class SudokuGUI:
 			for j in range(9):
 				c = self._buttons[i][j].get()
 				str += c if c else '.'
-		self._root.clipboard_clear()
-		self._root.clipboard_append(str)
-		self._root.update()
+		try:
+			pyperclip.copy(str)
+		except NameError:
+			self._root.clipboard_clear()
+			self._root.clipboard_append(str)
+			self._root.update()
 		tk.messagebox.showinfo("Exported","Board copied to clipboard!")
 
 if __name__ == "__main__":
