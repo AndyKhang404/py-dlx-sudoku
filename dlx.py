@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Iterator
 
 # Reference: http://web.archive.org/web/20171112064626/http://garethrees.org/2007/06/10/zendoku-generation/#section-4
 
@@ -136,14 +136,16 @@ class DLX():
 					s4.bottom.size += 1
 		
 		# Parse board
+		self.board = []
 		if board is not None:
 			if len(board) != 81:
 				raise Exception('Invalid board!')
 			board_arr = [(ord(i)-ord('1')) if (ord('1') <= ord(i) <= ord('9')) else -1 for i in board]
+			self.board = board_arr
 			for i in range(9):
 				for j in range(9):
-					curr = self.column_lookup[f's{i*9 + j}'].bottom
 					if board_arr[i*9+j] == -1: continue
+					curr = self.column_lookup[f's{i*9 + j}'].bottom
 					while not curr.is_column and not curr.name == f'r{i}c{j}#{board_arr[i*9+j]}':
 						curr = curr.bottom
 					if curr.name == f'r{i}c{j}#{board_arr[i*9+j]}':
@@ -151,6 +153,7 @@ class DLX():
 						curr = curr.next
 						while curr is not temp:
 							self.cover(self.column_lookup[curr.col])
+							curr = curr.next
 
 	
 	def cover(self, c: DLX_node) -> None:
@@ -184,3 +187,39 @@ class DLX():
 			u = u.top
 		c.prev.next = c
 		c.next.prev = c
+
+	def search(self,limit: int) -> Iterator[Union[str,None]]:
+		if limit == 0: # Limit how many solutions do we want
+			yield None
+			# "".join([chr(i+ord('1')) if 1 <= i <= 9 else ' ' for i in self.board])
+		curr = self.head.next
+		if curr is self.head: # We've found a solution
+			limit -= 1
+			yield "".join([chr(i+ord('1')) if 1 <= i <= 9 else ' ' for i in self.board])
+		minsize = 100
+		mincol = curr
+		while curr is not self.head:
+			if curr.size < minsize:
+				minsize = min(curr.size, minsize)
+				mincol = curr
+			curr = curr.next
+		if minsize == 0: # This column have nothing to cover => contradiction
+			yield None
+		self.cover(mincol)
+		r = curr.bottom
+		while r is not curr:
+			# o = r
+			j = r.next
+			while j is not r:
+				self.cover(self.column_lookup[j.col])
+				j = j.next
+			_,u,_,v,_,w = [ord(i)-ord('0') for i in r.name]
+			self.board[u*9+v] = w
+			yield from self.search(limit)
+			j = r.prev
+			while j is not r:
+				self.uncover(self.column_lookup[j.col])
+				j = j.prev
+			self.board[u*9+v] = -1
+			r = r.bottom
+		self.uncover(mincol)
