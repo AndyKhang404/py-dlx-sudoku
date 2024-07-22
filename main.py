@@ -3,6 +3,5 @@ from dlx import DLX_node,DLX
 
 if __name__ == "__main__":
 	sdk = DLX()
-	print(sdk.head.next.bottom.bottom.name)
-	print(sdk.head.next.size)
-	print(sdk.head.prev.name)
+	sdk.cover(sdk.head.next)
+	print(sdk.column_lookup['r0#1'].size)

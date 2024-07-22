@@ -4,7 +4,7 @@ from typing import Union
 
 class DLX_node:
 	def __init__(self) -> None:
-		self.value: int = 0
+		self.col: str = ''
 		self.size: int = 0
 		self.is_column: bool = False
 		self.name: str = ''
@@ -14,7 +14,7 @@ class DLX_node:
 		self.bottom : Union[None,DLX_node] = self
 
 class DLX():
-	def __init__(self) -> None:
+	def __init__(self,board: Union[str,None] = None) -> None:
 		self.head: DLX_node = DLX_node()
 		self.head.name = 'head'
 		curr: DLX_node = self.head
@@ -82,6 +82,7 @@ class DLX():
 					# Square
 					succ: DLX_node = DLX_node()
 					succ.name = f'r{row}c{col}#{i}'
+					succ.col = f's{row*9 + col}'
 					curr = s1
 					succ.top = curr.top
 					curr.top = succ
@@ -91,6 +92,7 @@ class DLX():
 					# Row
 					succ: DLX_node = DLX_node()
 					succ.name = f'r{row}c{col}#{i}'
+					succ.col = f'r{row}#{i}'
 					curr = s2
 					succ.top = curr.top
 					curr.top = succ
@@ -100,6 +102,7 @@ class DLX():
 					# Col
 					succ: DLX_node = DLX_node()
 					succ.name = f'r{row}c{col}#{i}'
+					succ.col = f'c{col}#{i}'
 					curr = s3
 					succ.top = curr.top
 					curr.top = succ
@@ -109,6 +112,7 @@ class DLX():
 					# Box
 					succ: DLX_node = DLX_node()
 					succ.name = f'r{row}c{col}#{i}'
+					succ.col = f'b{(col // 3) + (row // 3)*3}#{i}'
 					curr = s4
 					succ.top = curr.top
 					curr.top = succ
@@ -130,3 +134,53 @@ class DLX():
 					s2.bottom.size += 1
 					s3.bottom.size += 1
 					s4.bottom.size += 1
+		
+		# Parse board
+		if board is not None:
+			if len(board) != 81:
+				raise Exception('Invalid board!')
+			board_arr = [(ord(i)-ord('1')) if (ord('1') <= ord(i) <= ord('9')) else -1 for i in board]
+			for i in range(9):
+				for j in range(9):
+					curr = self.column_lookup[f's{i*9 + j}'].bottom
+					if board_arr[i*9+j] == -1: continue
+					while not curr.is_column and not curr.name == f'r{i}c{j}#{board_arr[i*9+j]}':
+						curr = curr.bottom
+					if curr.name == f'r{i}c{j}#{board_arr[i*9+j]}':
+						temp = curr
+						curr = curr.next
+						while curr is not temp:
+							self.cover(self.column_lookup[curr.col])
+
+	
+	def cover(self, c: DLX_node) -> None:
+		if not c.is_column:
+			return
+		
+		c.prev.next = c.next
+		c.next.prev = c.prev
+		n = c.bottom
+		while n is not c:
+			r = n.next
+			while r is not n:
+				r.top.bottom = r.bottom
+				r.bottom.top = r.top
+				self.column_lookup[r.col].size -= 1
+				r = r.next
+			n = n.bottom
+	
+	def uncover(self, c: DLX_node) -> None:
+		if not c.is_column:
+			return
+		
+		u = c.top
+		while u is not c:
+			p = u.prev
+			while p is not u:
+				self.column_lookup[p.col].size += 1
+				p.top.bottom = p
+				p.bottom.top = p
+				p = p.prev
+			u = u.top
+		c.prev.next = c
+		c.next.prev = c
